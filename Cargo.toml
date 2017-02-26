@@ -1,0 +1,22 @@
+[package]
+name = "rustforum"
+version = "0.1.0"
+authors = ["Ridwan Fadjar Septian <ridwan@ebizu.com>"]
+
+[dependencies]
+rocket = "*"
+rocket_codegen = "*"
+bson = "0.4.1"
+jsonwebtoken = "1"
+rustc-serialize = "0.3"
+serde = "0.9"
+serde_json = "0.9"
+serde_derive = "0.9"
+diesel = { version = "0.11.0", features = ["postgres", "chrono"] }
+diesel_codegen = { version = "0.11.0", features = ["postgres"] }
+dotenv = "0.8.0"
+
+[dependencies.rocket_contrib]
+version = "*"
+default-features = false
+features = ["json"]
