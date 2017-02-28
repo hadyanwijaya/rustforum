@@ -24,7 +24,12 @@ use rocket::request::{self, Request, FromRequest};
 use self::rustforum::*;
 use self::rustforum::models::*;
 use self::diesel::prelude::*;
+use std::time::SystemTime;
+use diesel::insert;
+use diesel::delete;
+use diesel::update;
 
+const SECRET_KEY: &'static str = "rahasia12345";
 
 #[derive(Debug, RustcEncodable, RustcDecodable)]
 struct Claims {
@@ -43,8 +48,6 @@ impl Claims {
         true
     }
 }
-
-const SECRET_KEY: &'static str = "rahasia12345";
 
 struct Token (String);
 
@@ -76,6 +79,7 @@ struct QuestionRow {
     tags: String,
     user_id: String
 }
+
 
 #[get("/question")]
 fn list_question(token: Token) -> JSON<Value> {
@@ -163,38 +167,84 @@ fn get_question(token: Token, qid: &str) -> JSON<Value> {
 
 #[post("/question", format = "application/json", data = "<question>")]
 fn create_question(token: Token, question: JSON<QuestionItem>) -> JSON<Value> {
-    let question_text: String = question.0.question_text;
-    let tags: String = question.0.tags;
+    let quest: String = question.0.question_text;
+    let tag: String = question.0.tags;
+    let now = SystemTime::now();
+
+    use rustforum::schema::questions::dsl::*;
+    
+    let connection = establish_connection();
+    let mut uid = String::new();
+    uid.push_str("12345");
+
+    let new_question = NewQuestion { 
+        question_text: quest, 
+        tags: tag, 
+        created_at: SystemTime::now(),
+        user_id: uid 
+    };
+
+    insert(&new_question)
+        .into(questions)
+        .execute(&connection)
+        .expect("Error saving new question");
 
     JSON(json!({
         "message": "Create the new question..",
         "data": {
-            "question_text": format!("{}", question_text),
-            "tags": format!("{}", tags)
+            "question_text": format!("{}", new_question.question_text),
+            "tags": format!("{}", new_question.tags)
         }
     }))
 }
 
-#[put("/question", format = "application/json", data = "<question>")]
-fn update_question(token: Token, question: JSON<QuestionItem>) -> JSON<Value> {
-    let question_text: String = question.0.question_text;
-    let tags: String = question.0.tags;
+#[put("/question/<qid>", format = "application/json", data = "<question>")]
+fn update_question(token: Token, qid: &str, question: JSON<QuestionItem>) -> JSON<Value> {
+    let quest = question.0.question_text;
+    let tag = question.0.tags;
+
+    use rustforum::schema::questions::dsl::*;
+
+    let connection = establish_connection();
+
+    let row_id = qid.parse::<i32>().unwrap();
+    
+    let row = update(
+            questions
+            .find(row_id)
+        )
+        .set(question_text.eq(quest))
+        .get_result::<Question>(&connection)
+        .expect("Error deleting question");
 
     JSON(json!({
         "message": "Create the new question..",
         "data": {
-            "question_text": format!("{}", question_text),
-            "tags": format!("{}", tags)
+            "question_text": format!("{}", row.question_text),
+            "tags": format!("{}", row.tags)
         }
     }))
 }
 
 
-#[delete("/question/<id>")]
-fn delete_question(id: &str) -> JSON<Value> {
+#[delete("/question/<qid>")]
+fn delete_question(qid: &str) -> JSON<Value> {
+
+    use rustforum::schema::questions::dsl::*;
+
+    let connection = establish_connection();
+
+    let row_id = qid.parse::<i32>().unwrap();
+
+    delete(
+            questions
+            .find(row_id)
+        )
+        .execute(&connection)
+        .expect("Error deleting question");
 
     JSON(json!({
-        "message": format!("Deleting the question with id: {}", id)
+        "message": format!("Deleting the question with id: {}", qid)
     }))
 
 }
