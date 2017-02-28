@@ -80,8 +80,13 @@ struct QuestionRow {
     user_id: String
 }
 
+/*
 
-#[get("/question")]
+Question Service
+
+*/
+
+#[get("/")]
 fn list_question(token: Token) -> JSON<Value> {
 
     let token_data = match decode::<Claims>(&token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -121,8 +126,7 @@ fn list_question(token: Token) -> JSON<Value> {
     }))
 }
 
-
-#[get("/question/<qid>")]
+#[get("/<qid>")]
 fn get_question(token: Token, qid: &str) -> JSON<Value> {
 
     let token_data = match decode::<Claims>(&token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -165,7 +169,7 @@ fn get_question(token: Token, qid: &str) -> JSON<Value> {
 
 }
 
-#[post("/question", format = "application/json", data = "<question>")]
+#[post("/", format = "application/json", data = "<question>")]
 fn create_question(token: Token, question: JSON<QuestionItem>) -> JSON<Value> {
     let quest: String = question.0.question_text;
     let tag: String = question.0.tags;
@@ -198,7 +202,7 @@ fn create_question(token: Token, question: JSON<QuestionItem>) -> JSON<Value> {
     }))
 }
 
-#[put("/question/<qid>", format = "application/json", data = "<question>")]
+#[put("/<qid>", format = "application/json", data = "<question>")]
 fn update_question(token: Token, qid: &str, question: JSON<QuestionItem>) -> JSON<Value> {
     let quest = question.0.question_text;
     let tag = question.0.tags;
@@ -226,8 +230,7 @@ fn update_question(token: Token, qid: &str, question: JSON<QuestionItem>) -> JSO
     }))
 }
 
-
-#[delete("/question/<qid>")]
+#[delete("/<qid>")]
 fn delete_question(qid: &str) -> JSON<Value> {
 
     use rustforum::schema::questions::dsl::*;
@@ -247,6 +250,118 @@ fn delete_question(qid: &str) -> JSON<Value> {
         "message": format!("Deleting the question with id: {}", qid)
     }))
 
+}
+
+#[post("/<qid>/answer")]
+fn set_answer(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call POST /question/<qid>/answer"
+    }))
+}
+
+#[post("/<qid>/like")]
+fn like_question(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call POST /question/<qid>/like"
+    }))
+}
+
+#[post("/<qid>/dislike")]
+fn dislike_question(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call POST /question/<qid>/dislike"
+    }))
+}
+
+
+/*
+
+Answer Service
+
+*/
+
+#[get("/<qid>")]
+fn get_answer(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call GET /answer/<qid>"
+    }))
+}
+
+#[put("/<qid>")]
+fn update_answer(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call PUT /answer/<qid>"
+    }))
+}
+
+#[delete("/<qid>")]
+fn delete_answer(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call DELETE /answer/<qid>"
+    }))
+}
+
+#[post("/<qid>/like")]
+fn like_answer(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call POST /answer/<qid>/like"
+    }))
+}
+
+#[post("/<qid>/dislike")]
+fn dislike_answer(qid: &str) -> JSON<Value> {
+    JSON(json!({
+        "message": "You call POST /answer/<qid>/dislike"
+    }))
+}
+
+
+/*
+
+Main Service
+
+*/
+
+#[get("/login")]
+fn login() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /login"
+    }))
+}
+
+#[get("/signup")]
+fn signup() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /signup"
+    }))
+}
+
+#[get("/logout")]
+fn logout() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /logout"
+    }))
+}
+
+#[get("/change_password")]
+fn change_password() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /change_password"
+    }))
+}
+
+#[get("/forgot_password")]
+fn forgot_password() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /forgot_password"
+    }))
+}
+
+#[get("/change_profile_picture")]
+fn change_profile_picture() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /change_profile_picture"
+    }))
 }
 
 #[get("/")]
@@ -271,6 +386,8 @@ fn index() -> JSON<Value> {
 
 fn main() {
     rocket::ignite()
-    	.mount("/", routes![index, list_question, get_question, create_question, update_question, delete_question])
+        .mount("/", routes![index, login, logout, signup, change_password, forgot_password, change_profile_picture])
+        .mount("/question", routes![list_question, get_question, create_question, update_question, delete_question, like_question, dislike_question, set_answer ])
+    	.mount("/answer", routes![get_answer, update_answer,  delete_answer, like_answer, dislike_answer ])
     	.launch();
 }
