@@ -121,7 +121,7 @@ fn list_question(token: Token) -> JSON<Value> {
     println!("Rows length: {}", rows.len());
     
     JSON(json!({
-        "message": "Getting the question list...",
+        "message": "Getting the question listss...",
         "data": rows
     }))
 }
