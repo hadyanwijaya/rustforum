@@ -34,6 +34,7 @@ const SECRET_KEY: &'static str = "rahasia12345";
 #[derive(Debug, RustcEncodable, RustcDecodable)]
 struct Claims {
     sub: String,
+    username: String,
     company: String
 }
 
@@ -67,7 +68,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for Token {
 }
 
 #[derive(Deserialize)]
-struct QuestionItem {
+struct QuestionPayload {
     question_text: String,
     tags: String
 }
@@ -78,6 +79,28 @@ struct QuestionRow {
     question_text: String,
     tags: String,
     user_id: String
+}
+
+#[derive(Deserialize)]
+struct SignupUserPayload {
+    username: String,
+    password: String,
+    confirm_password: String,
+    email: String,
+}
+
+#[derive(Deserialize)]
+struct LoginUserPayload {
+    username: String,
+    password: String
+}
+
+#[derive(Serialize)]
+struct UserRow {
+    id: i32,
+    username: String,
+    email: String,
+    token: String
 }
 
 /*
@@ -170,7 +193,7 @@ fn get_question(token: Token, qid: &str) -> JSON<Value> {
 }
 
 #[post("/", format = "application/json", data = "<question>")]
-fn create_question(token: Token, question: JSON<QuestionItem>) -> JSON<Value> {
+fn create_question(token: Token, question: JSON<QuestionPayload>) -> JSON<Value> {
     let quest: String = question.0.question_text;
     let tag: String = question.0.tags;
     let now = SystemTime::now();
@@ -203,7 +226,7 @@ fn create_question(token: Token, question: JSON<QuestionItem>) -> JSON<Value> {
 }
 
 #[put("/<qid>", format = "application/json", data = "<question>")]
-fn update_question(token: Token, qid: &str, question: JSON<QuestionItem>) -> JSON<Value> {
+fn update_question(token: Token, qid: &str, question: JSON<QuestionPayload>) -> JSON<Value> {
     let quest = question.0.question_text;
     let tag = question.0.tags;
 
@@ -322,17 +345,83 @@ Main Service
 
 */
 
-#[get("/login")]
-fn login() -> JSON<Value> {
+#[post("/login", format = "application/json", data = "<user>")]
+fn login(user: JSON<LoginUserPayload>) -> JSON<Value> {
+    let v_username: String = user.0.username;
+    let v_password: String = user.0.password;
+
+    // get user
+    // if has token and not expired use that token
+    // if token has expired generate a new one
+
+    let my_claims = Claims {
+        username: v_username.to_owned(),
+        sub: "ridwanbejo@gmail.com".to_owned(),
+        company: "Codepolitan".to_owned()
+    };
+
+    let v_token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
+        Ok(t) => t,
+        Err(_) => panic!() // in practice you would return the error
+    };
+
     JSON(json!({
-        "message": "You call /login"
+        "message": "Login success",
+        "data": {
+            "token": v_token
+        }
     }))
 }
 
-#[get("/signup")]
-fn signup() -> JSON<Value> {
+#[post("/signup", format = "application/json", data = "<user>")]
+fn signup(user: JSON<SignupUserPayload>) -> JSON<Value> {
+
+    let v_username: String = user.0.username;
+    let v_password: String = user.0.password;
+    let v_email: String = user.0.email;
+
+    // check if user with the given username and/or email has existed
+    // if unexist create a new one
+        // if password with confirm_password is unmatch then error
+        // else Signup success
+    // else Signup error
+
+    let my_claims = Claims {
+        username: v_username.to_owned(),
+        sub: v_email.to_owned(),
+        company: "Codepolitan".to_owned()
+    };
+
+    let v_token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
+        Ok(t) => t,
+        Err(_) => panic!() // in practice you would return the error
+    };
+
+    println!("{:?}", v_token);
+
+    use rustforum::schema::users::dsl::*;
+    
+    let connection = establish_connection();
+
+    let new_user = NewUser { 
+        username: v_username, 
+        email: v_email, 
+        password: v_password, 
+        token: v_token,
+        created_at: SystemTime::now(),
+    };
+
+    insert(&new_user)
+        .into(users)
+        .execute(&connection)
+        .expect("Error saving new user");
+
+
     JSON(json!({
-        "message": "You call /signup"
+        "message": "Signup success",
+        "data": {
+            "token":new_user.token
+        }
     }))
 }
 
@@ -366,18 +455,6 @@ fn change_profile_picture() -> JSON<Value> {
 
 #[get("/")]
 fn index() -> JSON<Value> {
-
-    let my_claims = Claims {
-        sub: "ridwanbejo@gmail.com".to_owned(),
-        company: "Codepolitan".to_owned()
-    };
-
-    let token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
-        Ok(t) => t,
-        Err(_) => panic!() // in practice you would return the error
-    };
-
-    println!("{:?}", token);
 
     JSON(json!({
         "message": "Welcome to RustForum API :D"
