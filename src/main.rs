@@ -110,6 +110,20 @@ struct UserRow {
     token: String
 }
 
+#[derive(Deserialize)]
+struct AnswerPayload {
+    answer_text: String,
+}
+
+#[derive(Serialize)]
+struct AnswerRow {
+    answer_id: i32, 
+    answer_text: String,
+    question_id: i32,
+    user_id: i32,
+}
+
+
 /*
 
 Question Service
@@ -159,7 +173,6 @@ fn list_question(token: Token) -> JSON<Value> {
             "message": "Invalid token"
         }))
     }
-    
 }
 
 #[get("/my")]
@@ -219,17 +232,6 @@ fn my_question(v_token: Token) -> JSON<Value> {
             "message": "Invalid token"
         }))
     }
-
-    // if (token_data.claims.is_valid())
-    // {
-
-    // }
-    // else
-    // {
-    //     JSON(json!({
-    //         "message": "Invalid token"
-    //     }))
-    // }
 }
 
 #[get("/<qid>")]
@@ -328,8 +330,6 @@ fn create_question(v_token: Token, question: JSON<QuestionPayload>) -> JSON<Valu
             "message": "Invalid token"
         }))
     }
-
-   
 }
 
 #[put("/<qid>", format = "application/json", data = "<question>")]
@@ -465,13 +465,6 @@ fn delete_question(v_token: Token, qid: &str) -> JSON<Value> {
 
 #[get("/<qid>/answer")]
 fn get_answer(v_token: Token, qid: &str) -> JSON<Value> {
-    JSON(json!({
-        "message": "You call POST /question/<qid>/answer"
-    }))
-}
-
-#[post("/<qid>/answer")]
-fn set_answer(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
         Ok(c) => c,
         Err(err) => match err {
@@ -480,19 +473,95 @@ fn set_answer(v_token: Token, qid: &str) -> JSON<Value> {
         }
     };
 
-    use rustforum::schema::users::dsl::*;
-    let connection = establish_connection();
+    if (token_data.claims.is_valid())
+    {
+        let v_question_id = qid.parse::<i32>().unwrap();
+        
+        // get question
+        use rustforum::schema::answers::dsl::*;
+        let connection = establish_connection();
 
-    // get user id
-    let v_user = users
-                .filter(username.eq(token_data.claims.username))
-                .filter(email.eq(token_data.claims.sub))
-                .first::<User>(&connection)
-                .expect("Error loading users");
+        let results = answers
+            .filter(question_id.eq(v_question_id))
+            .load::<Answer>(&connection)
+            .expect("Error loading answer");
 
-    JSON(json!({
-        "message": "You call POST /question/<qid>/answer"
-    }))
+        let mut rows: Vec<AnswerRow> = vec![];
+
+        for post in results {
+            let answ = AnswerRow {answer_id: post.answer_id, answer_text: post.answer_text, question_id: post.question_id, user_id: post.user_id};
+            rows.push(answ);
+        }
+
+        println!("Rows length: {}", rows.len());
+        
+        JSON(json!({
+            "message": "Getting the answer lists...",
+            "data": rows
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
+}
+
+#[post("/<qid>/answer", format = "application/json", data = "<answer>")]
+fn set_answer(v_token: Token, qid: &str, answer: JSON<AnswerPayload>) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    if (token_data.claims.is_valid())
+    {
+        let v_answer: String = answer.0.answer_text;
+        let v_question_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
+
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+
+        use rustforum::schema::answers::dsl::*;
+        let connection = establish_connection();
+        
+        let new_answer = NewAnswer { 
+            answer_text: v_answer, 
+            question_id: v_question_id, 
+            user_id: v_user.id ,
+            created_at: SystemTime::now(),
+        };
+
+        insert(&new_answer)
+            .into(answers)
+            .execute(&connection)
+            .expect("Error saving new answer");
+
+        JSON(json!({
+            "message": "Create the new answer is success..",
+            "data": {
+                "answer_text": format!("{}", new_answer.answer_text),
+                "question_id": format!("{}", new_answer.question_id)
+            }
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
 #[post("/<qid>/like")]

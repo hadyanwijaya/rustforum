@@ -43,40 +43,29 @@ pub struct NewQuestion {
     pub user_id: i32
 }
 
-// #[derive(Debug, Queryable)]
-// pub struct Answer {
-//     pub id: i32,
-//     pub answer_text: String,
-//     pub question_id: String,
-//     pub user_id: String,
-//     pub created_at: SystemTime
-// }
+#[derive(Debug, Queryable)]
+pub struct Answer {
+    pub answer_id: i32,
+    pub answer_text: String,
+    pub created_at: SystemTime,
+    pub user_id: i32,
+    pub question_id: i32,
+}
 
-// use super::schema::questions;
+use super::schema::answers;
 
-// #[derive(Debug, Insertable)]
-// #[table_name="answers"]
-// pub struct NewAnswer {
-//     pub answer_text: String,
-//     pub question_id: String,
-//     pub user_id: String,
-//     pub created_at: SystemTime
-// }
+#[derive(Debug, Insertable)]
+#[table_name="answers"]
+pub struct NewAnswer {
+    pub answer_text: String,
+    pub question_id: i32,
+    pub user_id: i32,
+    pub created_at: SystemTime
+}
 
 // #[derive(Debug, Queryable)]
 // pub struct Reaction {
 //     pub id: i32,
-//     pub answer_text: String,
-//     pub question_id: String,
-//     pub user_id: String,
-//     pub created_at: SystemTime
-// }
-
-// use super::schema::questions;
-
-// #[derive(Debug, Insertable)]
-// #[table_name="answers"]
-// pub struct NewAnswer {
 //     pub answer_text: String,
 //     pub question_id: String,
 //     pub user_id: String,
