@@ -9,7 +9,6 @@ pub struct User {
     pub password: String,
     pub token: String,
     pub created_at: SystemTime,
-    pub logout_at: SystemTime,
 }
 
 use super::schema::users;
@@ -30,7 +29,7 @@ pub struct Question {
     pub question_text: String,
     pub tags: String,
     pub created_at: SystemTime,
-    pub user_id: String
+    pub user_id: i32
 }
 
 use super::schema::questions;
@@ -41,7 +40,7 @@ pub struct NewQuestion {
     pub question_text: String,
     pub tags: String,
     pub created_at: SystemTime,
-    pub user_id: String
+    pub user_id: i32
 }
 
 // #[derive(Debug, Queryable)]

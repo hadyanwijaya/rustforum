@@ -78,7 +78,7 @@ struct QuestionRow {
     id: i32,
     question_text: String,
     tags: String,
-    user_id: String
+    user_id: i32
 }
 
 #[derive(Deserialize)]
@@ -120,15 +120,61 @@ fn list_question(token: Token) -> JSON<Value> {
         }
     };
     
-    println!("{:?}", token_data.claims);
-    println!("{:?}", token_data.header);
-    println!("{:?}", token_data.claims.is_valid());
-
+    // get question
     use rustforum::schema::questions::dsl::*;
-
     let connection = establish_connection();
 
     let results = questions
+        .load::<Question>(&connection)
+        .expect("Error loading posts");
+
+    println!("Found {} questions", results.len());
+    
+    let mut rows: Vec<QuestionRow> = vec![];
+
+    for post in results {
+        let question = QuestionRow {id: post.id, question_text: post.question_text, tags: post.tags, user_id: post.user_id};
+        rows.push(question);
+    }
+
+    println!("Rows length: {}", rows.len());
+    
+    JSON(json!({
+        "message": "Getting the question listss...",
+        "data": rows
+    }))
+}
+
+#[get("/my")]
+fn my_question(v_token: Token) -> JSON<Value> {
+
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+    
+    println!("{}", token_data.claims.username);
+    println!("{}", token_data.claims.sub);
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+                
+    // get question
+    use rustforum::schema::questions::dsl::*;
+    let connection = establish_connection();
+
+    let results = questions
+        .filter(user_id.eq(v_user.id))
         .load::<Question>(&connection)
         .expect("Error loading posts");
 
@@ -189,7 +235,6 @@ fn get_question(token: Token, qid: &str) -> JSON<Value> {
             "user_id": row.user_id
         }
     }))
-
 }
 
 #[post("/", format = "application/json", data = "<question>")]
@@ -201,8 +246,7 @@ fn create_question(token: Token, question: JSON<QuestionPayload>) -> JSON<Value>
     use rustforum::schema::questions::dsl::*;
     
     let connection = establish_connection();
-    let mut uid = String::new();
-    uid.push_str("12345");
+    let uid = 12;
 
     let new_question = NewQuestion { 
         question_text: quest, 
@@ -272,7 +316,6 @@ fn delete_question(qid: &str) -> JSON<Value> {
     JSON(json!({
         "message": format!("Deleting the question with id: {}", qid)
     }))
-
 }
 
 #[post("/<qid>/answer")]
@@ -351,26 +394,51 @@ fn login(user: JSON<LoginUserPayload>) -> JSON<Value> {
     let v_password: String = user.0.password;
 
     // get user
-    // if has token and not expired use that token
-    // if token has expired generate a new one
+    use rustforum::schema::users::dsl::*;
+            
+    let connection = establish_connection();
+             
+    let results = users
+                .filter(username.eq(v_username.clone()))
+                .filter(password.eq(v_password.clone()))
+                .load::<User>(&connection)
+                .expect("Error loading users");
 
-    let my_claims = Claims {
-        username: v_username.to_owned(),
-        sub: "ridwanbejo@gmail.com".to_owned(),
-        company: "Codepolitan".to_owned()
-    };
+    // println!("Found {} users", results.len());
 
-    let v_token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
-        Ok(t) => t,
-        Err(_) => panic!() // in practice you would return the error
-    };
+    if (results.len() > 0) {
 
-    JSON(json!({
-        "message": "Login success",
-        "data": {
-            "token": v_token
-        }
-    }))
+        let v_user = users
+                .filter(username.eq(v_username.clone()))
+                .filter(password.eq(v_password.clone()))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
+        let my_claims = Claims {
+            username: v_user.username.to_owned(),
+            sub: v_user.email.to_owned(),
+            company: "Codepolitan".to_owned()
+        };
+
+        let v_token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
+            Ok(t) => t,
+            Err(_) => panic!() // in practice you would return the error
+        };
+
+        JSON(json!({
+            "message": "Login success",
+            "data": {
+                "token": v_token
+            }
+        }))
+    }
+
+    else
+    {
+        JSON(json!({
+            "message": "Login failed. User not found.."
+        }))
+    }
 }
 
 #[post("/signup", format = "application/json", data = "<user>")]
@@ -378,58 +446,80 @@ fn signup(user: JSON<SignupUserPayload>) -> JSON<Value> {
 
     let v_username: String = user.0.username;
     let v_password: String = user.0.password;
+    let v_confirm_password: String = user.0.confirm_password;
     let v_email: String = user.0.email;
+
 
     // check if user with the given username and/or email has existed
     // if unexist create a new one
-        // if password with confirm_password is unmatch then error
-        // else Signup success
-    // else Signup error
-
-    let my_claims = Claims {
-        username: v_username.to_owned(),
-        sub: v_email.to_owned(),
-        company: "Codepolitan".to_owned()
-    };
-
-    let v_token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
-        Ok(t) => t,
-        Err(_) => panic!() // in practice you would return the error
-    };
-
-    println!("{:?}", v_token);
-
-    use rustforum::schema::users::dsl::*;
     
+    use rustforum::schema::users::dsl::*;
+            
     let connection = establish_connection();
+             
+    let results = users
+                .filter(email.eq(v_email.clone()))
+                .filter(username.eq(v_username.clone()))
+                .load::<User>(&connection)
+                .expect("Error loading users");
 
-    let new_user = NewUser { 
-        username: v_username, 
-        email: v_email, 
-        password: v_password, 
-        token: v_token,
-        created_at: SystemTime::now(),
-    };
-
-    insert(&new_user)
-        .into(users)
-        .execute(&connection)
-        .expect("Error saving new user");
-
-
-    JSON(json!({
-        "message": "Signup success",
-        "data": {
-            "token":new_user.token
+    if (results.len() == 0) {
+        // if password with confirm_password is unmatch then error
+        if (v_password != v_confirm_password)
+        {
+            JSON(json!({
+                "message": "Signup failed. Password and Confirm Password is not match.."
+            }))
         }
-    }))
-}
+        else
+        {
+            // else Signup success
+        
+            let my_claims = Claims {
+                username: v_username.to_owned(),
+                sub: v_email.to_owned(),
+                company: "Codepolitan".to_owned()
+            };
 
-#[get("/logout")]
-fn logout() -> JSON<Value> {
-    JSON(json!({
-        "message": "You call /logout"
-    }))
+            let v_token = match encode(Header::default(), &my_claims, SECRET_KEY.as_ref()) {
+                Ok(t) => t,
+                Err(_) => panic!() // in practice you would return the error
+            };
+
+            println!("{:?}", v_token);
+
+            use rustforum::schema::users::dsl::*;
+            
+            let connection = establish_connection();
+       
+            let new_user = NewUser { 
+                username: v_username, 
+                email: v_email, 
+                password: v_password, 
+                token: v_token,
+                created_at: SystemTime::now(),
+            };
+
+            insert(&new_user)
+                .into(users)
+                .execute(&connection)
+                .expect("Error saving new user");
+
+
+            JSON(json!({
+                "message": "Signup success",
+                "data": {
+                    "token":new_user.token
+                }
+            }))
+        }
+    }
+    else {
+        // else Signup error
+        JSON(json!({
+            "message": "Signup failed. Account is unavailable.."
+        }))
+    }
 }
 
 #[get("/change_password")]
@@ -453,6 +543,13 @@ fn change_profile_picture() -> JSON<Value> {
     }))
 }
 
+#[get("/logout")]
+fn logout() -> JSON<Value> {
+    JSON(json!({
+        "message": "You call /logout"
+    }))
+}
+
 #[get("/")]
 fn index() -> JSON<Value> {
 
@@ -464,7 +561,7 @@ fn index() -> JSON<Value> {
 fn main() {
     rocket::ignite()
         .mount("/", routes![index, login, logout, signup, change_password, forgot_password, change_profile_picture])
-        .mount("/question", routes![list_question, get_question, create_question, update_question, delete_question, like_question, dislike_question, set_answer ])
+        .mount("/question", routes![my_question, list_question, get_question, create_question, update_question, delete_question, like_question, dislike_question, set_answer ])
     	.mount("/answer", routes![get_answer, update_answer,  delete_answer, like_answer, dislike_answer ])
     	.launch();
 }
