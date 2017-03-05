@@ -75,7 +75,7 @@ struct QuestionPayload {
 
 #[derive(Serialize)]
 struct QuestionRow {
-    id: i32,
+    question_id: i32,
     question_text: String,
     tags: String,
     user_id: i32
@@ -93,6 +93,13 @@ struct SignupUserPayload {
 struct LoginUserPayload {
     username: String,
     password: String
+}
+
+#[derive(Deserialize)]
+struct ChangePasswordUserPayload {
+    password: String,
+    new_password: String,
+    confirm_new_password: String,
 }
 
 #[derive(Serialize)]
@@ -120,29 +127,39 @@ fn list_question(token: Token) -> JSON<Value> {
         }
     };
     
-    // get question
-    use rustforum::schema::questions::dsl::*;
-    let connection = establish_connection();
+    if (token_data.claims.is_valid())
+    {
 
-    let results = questions
-        .load::<Question>(&connection)
-        .expect("Error loading posts");
+        // get question
+        use rustforum::schema::questions::dsl::*;
+        let connection = establish_connection();
 
-    println!("Found {} questions", results.len());
-    
-    let mut rows: Vec<QuestionRow> = vec![];
+        let results = questions
+            .load::<Question>(&connection)
+            .expect("Error loading posts");
 
-    for post in results {
-        let question = QuestionRow {id: post.id, question_text: post.question_text, tags: post.tags, user_id: post.user_id};
-        rows.push(question);
+        let mut rows: Vec<QuestionRow> = vec![];
+
+        for post in results {
+            let question = QuestionRow {question_id: post.question_id, question_text: post.question_text, tags: post.tags, user_id: post.user_id};
+            rows.push(question);
+        }
+
+        println!("Rows length: {}", rows.len());
+        
+        JSON(json!({
+            "message": "Getting the question listss...",
+            "data": rows
+        }))
+
     }
-
-    println!("Rows length: {}", rows.len());
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
     
-    JSON(json!({
-        "message": "Getting the question listss...",
-        "data": rows
-    }))
 }
 
 #[get("/my")]
@@ -158,41 +175,61 @@ fn my_question(v_token: Token) -> JSON<Value> {
     
     println!("{}", token_data.claims.username);
     println!("{}", token_data.claims.sub);
-
-    use rustforum::schema::users::dsl::*;
-    let connection = establish_connection();
-
-    // get user id
-    let v_user = users
-                .filter(username.eq(token_data.claims.username))
-                .filter(email.eq(token_data.claims.sub))
-                .first::<User>(&connection)
-                .expect("Error loading users");
-                
-    // get question
-    use rustforum::schema::questions::dsl::*;
-    let connection = establish_connection();
-
-    let results = questions
-        .filter(user_id.eq(v_user.id))
-        .load::<Question>(&connection)
-        .expect("Error loading posts");
-
-    println!("Found {} questions", results.len());
+    println!("{}", token_data.claims.is_valid());
     
-    let mut rows: Vec<QuestionRow> = vec![];
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
 
-    for post in results {
-        let question = QuestionRow {id: post.id, question_text: post.question_text, tags: post.tags, user_id: post.user_id};
-        rows.push(question);
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+                    
+        // get question
+        use rustforum::schema::questions::dsl::*;
+        let connection = establish_connection();
+
+        let results = questions
+            .filter(user_id.eq(v_user.id))
+            .load::<Question>(&connection)
+            .expect("Error loading posts");
+
+        let mut rows: Vec<QuestionRow> = vec![];
+
+        for post in results {
+            let question = QuestionRow {question_id: post.question_id, question_text: post.question_text, tags: post.tags, user_id: post.user_id};
+            rows.push(question);
+        }
+
+        println!("Rows length: {}", rows.len());
+        
+        JSON(json!({
+            "message": "Getting the question listss...",
+            "data": rows
+        }))
+
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
     }
 
-    println!("Rows length: {}", rows.len());
-    
-    JSON(json!({
-        "message": "Getting the question listss...",
-        "data": rows
-    }))
+    // if (token_data.claims.is_valid())
+    // {
+
+    // }
+    // else
+    // {
+    //     JSON(json!({
+    //         "message": "Invalid token"
+    //     }))
+    // }
 }
 
 #[get("/<qid>")]
@@ -206,134 +243,303 @@ fn get_question(token: Token, qid: &str) -> JSON<Value> {
         }
     };
     
-    println!("{:?}", token_data.claims);
-    println!("{:?}", token_data.header);
-    println!("{:?}", token_data.claims.is_valid());
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::questions::dsl::*;
 
-    use rustforum::schema::questions::dsl::*;
+        let connection = establish_connection();
+        let row_id = qid.parse::<i32>().unwrap();
+        let row = questions
+            .find(row_id)
+            .first::<Question>(&connection)
+            .expect("Error loading posts");
 
-    let connection = establish_connection();
-
-    println!("{}", qid);
-
-    let row_id = qid.parse::<i32>().unwrap();
-
-    let row = questions
-        .find(row_id)
-        .first::<Question>(&connection)
-        .expect("Error loading posts");
-
-    println!("{}", row.id);
-    println!("{}", row.question_text);
-
-	JSON(json!({
-        "message": format!("Getting the question with id: {}", qid),
-        "data": {
-            "id": row.id,
-            "question_text": row.question_text,
-            "tags":row.tags,
-            "user_id": row.user_id
-        }
-    }))
+        JSON(json!({
+            "message": format!("Getting the question with id: {}", qid),
+            "data": {
+                "id": row.question_id,
+                "question_text": row.question_text,
+                "tags":row.tags,
+                "user_id": row.user_id
+            }
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
 #[post("/", format = "application/json", data = "<question>")]
-fn create_question(token: Token, question: JSON<QuestionPayload>) -> JSON<Value> {
-    let quest: String = question.0.question_text;
-    let tag: String = question.0.tags;
-    let now = SystemTime::now();
+fn create_question(v_token: Token, question: JSON<QuestionPayload>) -> JSON<Value> {
 
-    use rustforum::schema::questions::dsl::*;
-    
-    let connection = establish_connection();
-    let uid = 12;
-
-    let new_question = NewQuestion { 
-        question_text: quest, 
-        tags: tag, 
-        created_at: SystemTime::now(),
-        user_id: uid 
-    };
-
-    insert(&new_question)
-        .into(questions)
-        .execute(&connection)
-        .expect("Error saving new question");
-
-    JSON(json!({
-        "message": "Create the new question..",
-        "data": {
-            "question_text": format!("{}", new_question.question_text),
-            "tags": format!("{}", new_question.tags)
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
         }
-    }))
+    };
+    
+    if (token_data.claims.is_valid())
+    {
+        let quest: String = question.0.question_text;
+        let tag: String = question.0.tags;
+        let now = SystemTime::now();
+
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
+
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+
+        use rustforum::schema::questions::dsl::*;
+        let connection = establish_connection();
+        
+        let new_question = NewQuestion { 
+            question_text: quest, 
+            tags: tag, 
+            created_at: SystemTime::now(),
+            user_id: v_user.id 
+        };
+
+        insert(&new_question)
+            .into(questions)
+            .execute(&connection)
+            .expect("Error saving new question");
+
+        JSON(json!({
+            "message": "Create the new question..",
+            "data": {
+                "question_text": format!("{}", new_question.question_text),
+                "tags": format!("{}", new_question.tags)
+            }
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
+
+   
 }
 
 #[put("/<qid>", format = "application/json", data = "<question>")]
-fn update_question(token: Token, qid: &str, question: JSON<QuestionPayload>) -> JSON<Value> {
-    let quest = question.0.question_text;
-    let tag = question.0.tags;
+fn update_question(v_token: Token, qid: &str, question: JSON<QuestionPayload>) -> JSON<Value> {
 
-    use rustforum::schema::questions::dsl::*;
-
-    let connection = establish_connection();
-
-    let row_id = qid.parse::<i32>().unwrap();
-    
-    let row = update(
-            questions
-            .find(row_id)
-        )
-        .set(question_text.eq(quest))
-        .get_result::<Question>(&connection)
-        .expect("Error deleting question");
-
-    JSON(json!({
-        "message": "Create the new question..",
-        "data": {
-            "question_text": format!("{}", row.question_text),
-            "tags": format!("{}", row.tags)
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
         }
-    }))
+    };
+
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
+
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+
+        let quest = question.0.question_text;
+        let tag = question.0.tags;
+        let row_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::questions::dsl::*;
+        let connection = establish_connection();
+        
+        let v_question = questions
+                .filter(user_id.eq(v_user.id))
+                .filter(question_id.eq(row_id))
+                .load::<Question>(&connection)
+                .expect("Error loading users");
+
+        if (v_question.len() > 0){
+            let row = update(
+                    questions
+                    .find(row_id)
+                )
+                .set(question_text.eq(quest))
+                .get_result::<Question>(&connection)
+                .expect("Error updating question");
+
+            JSON(json!({
+                "message": "Update question is success..",
+                "data": {
+                    "question_text": format!("{}", row.question_text),
+                    "tags": format!("{}", row.tags)
+                }
+            }))
+        }
+        else
+        {
+            JSON(json!({
+                "message": "You are unauthorized to edit this question"
+            })) 
+        }
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
 #[delete("/<qid>")]
-fn delete_question(qid: &str) -> JSON<Value> {
+fn delete_question(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
 
-    use rustforum::schema::questions::dsl::*;
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
 
-    let connection = establish_connection();
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
 
-    let row_id = qid.parse::<i32>().unwrap();
+        let row_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::questions::dsl::*;
+        let connection = establish_connection();
+        
+        let v_question = questions
+                .filter(user_id.eq(v_user.id))
+                .filter(question_id.eq(row_id))
+                .load::<Question>(&connection)
+                .expect("Error loading question");
 
-    delete(
-            questions
-            .find(row_id)
-        )
-        .execute(&connection)
-        .expect("Error deleting question");
+        println!("{}", v_question.len());
 
+        if (v_question.len() > 0){
+            delete(
+                    questions
+                    .find(row_id)
+                )
+                .execute(&connection)
+                .expect("Error deleting question");
+
+            JSON(json!({
+                "message": format!("Deleting the question with id: {}", qid)
+            }))
+
+        }
+        else
+        {
+            JSON(json!({
+                "message": "You are unauthorized to delete this question"
+            })) 
+        }
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
+}
+
+#[get("/<qid>/answer")]
+fn get_answer(v_token: Token, qid: &str) -> JSON<Value> {
     JSON(json!({
-        "message": format!("Deleting the question with id: {}", qid)
+        "message": "You call POST /question/<qid>/answer"
     }))
 }
 
 #[post("/<qid>/answer")]
-fn set_answer(qid: &str) -> JSON<Value> {
+fn set_answer(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call POST /question/<qid>/answer"
     }))
 }
 
 #[post("/<qid>/like")]
-fn like_question(qid: &str) -> JSON<Value> {
+fn like_question(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call POST /question/<qid>/like"
     }))
 }
 
 #[post("/<qid>/dislike")]
-fn dislike_question(qid: &str) -> JSON<Value> {
+fn dislike_question(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call POST /question/<qid>/dislike"
     }))
@@ -346,36 +552,101 @@ Answer Service
 
 */
 
-#[get("/<qid>")]
-fn get_answer(qid: &str) -> JSON<Value> {
-    JSON(json!({
-        "message": "You call GET /answer/<qid>"
-    }))
-}
-
 #[put("/<qid>")]
-fn update_answer(qid: &str) -> JSON<Value> {
+fn update_answer(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call PUT /answer/<qid>"
     }))
 }
 
 #[delete("/<qid>")]
-fn delete_answer(qid: &str) -> JSON<Value> {
+fn delete_answer(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call DELETE /answer/<qid>"
     }))
 }
 
 #[post("/<qid>/like")]
-fn like_answer(qid: &str) -> JSON<Value> {
+fn like_answer(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call POST /answer/<qid>/like"
     }))
 }
 
 #[post("/<qid>/dislike")]
-fn dislike_answer(qid: &str) -> JSON<Value> {
+fn dislike_answer(v_token: Token, qid: &str) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
     JSON(json!({
         "message": "You call POST /answer/<qid>/dislike"
     }))
@@ -424,6 +695,15 @@ fn login(user: JSON<LoginUserPayload>) -> JSON<Value> {
             Ok(t) => t,
             Err(_) => panic!() // in practice you would return the error
         };
+
+        let row = update(
+                users
+                .find(v_user.id)
+            )
+            .set(token.eq(v_token.clone()))
+            .get_result::<User>(&connection)
+            .expect("Error updating users");
+
 
         JSON(json!({
             "message": "Login success",
@@ -522,15 +802,134 @@ fn signup(user: JSON<SignupUserPayload>) -> JSON<Value> {
     }
 }
 
-#[get("/change_password")]
-fn change_password() -> JSON<Value> {
-    JSON(json!({
-        "message": "You call /change_password"
-    }))
+#[post("/change_password", format = "application/json", data = "<user>")]
+fn change_password(v_token: Token, user: JSON<ChangePasswordUserPayload>) -> JSON<Value> {
+
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    if (token_data.claims.is_valid())
+    {
+        let v_password: String = user.0.password;
+        let v_new_password: String = user.0.new_password;
+        let v_confirm_new_password: String = user.0.confirm_new_password;
+
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
+
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+        if (v_user.password == v_password.clone())
+        {
+            if (v_new_password == v_confirm_new_password)
+            {
+                let row = update(
+                    users
+                    .find(v_user.id)
+                )
+                .set(password.eq(v_new_password))
+                .get_result::<User>(&connection)
+                .expect("Error updating users");
+
+                JSON(json!({
+                    "message": "Change password success..",
+                }))  
+            }
+            else
+            {
+                JSON(json!({
+                    "message": "New password with confirm new password is unmatch",
+                }))
+            }
+        }
+        else
+        {
+            JSON(json!({
+                "message": "Invalid account",
+            }))
+        }
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
+}
+
+#[get("/logout")]
+fn logout(v_token: Token) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
+
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+
+        let row = update(
+                users
+                .find(v_user.id)
+            )
+            .set(token.eq(""))
+            .get_result::<User>(&connection)
+            .expect("Error updating users");
+
+        JSON(json!({
+            "message": "Logout success..",
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
 #[get("/forgot_password")]
-fn forgot_password() -> JSON<Value> {
+fn forgot_password(v_token: Token) -> JSON<Value> {
+    let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
+        Ok(c) => c,
+        Err(err) => match err {
+            Error::InvalidToken => panic!(),
+            _ => panic!()
+        }
+    };
+
+    use rustforum::schema::users::dsl::*;
+    let connection = establish_connection();
+
+    // get user id
+    let v_user = users
+                .filter(username.eq(token_data.claims.username))
+                .filter(email.eq(token_data.claims.sub))
+                .first::<User>(&connection)
+                .expect("Error loading users");
+
+    /* TODO */
+
     JSON(json!({
         "message": "You call /forgot_password"
     }))
@@ -538,15 +937,11 @@ fn forgot_password() -> JSON<Value> {
 
 #[get("/change_profile_picture")]
 fn change_profile_picture() -> JSON<Value> {
+
+    /* TODO */
+    
     JSON(json!({
         "message": "You call /change_profile_picture"
-    }))
-}
-
-#[get("/logout")]
-fn logout() -> JSON<Value> {
-    JSON(json!({
-        "message": "You call /logout"
     }))
 }
 
@@ -561,7 +956,7 @@ fn index() -> JSON<Value> {
 fn main() {
     rocket::ignite()
         .mount("/", routes![index, login, logout, signup, change_password, forgot_password, change_profile_picture])
-        .mount("/question", routes![my_question, list_question, get_question, create_question, update_question, delete_question, like_question, dislike_question, set_answer ])
-    	.mount("/answer", routes![get_answer, update_answer,  delete_answer, like_answer, dislike_answer ])
+        .mount("/question", routes![get_answer, my_question, list_question, get_question, create_question, update_question, delete_question, like_question, dislike_question, set_answer ])
+    	.mount("/answer", routes![update_answer,  delete_answer, like_answer, dislike_answer ])
     	.launch();
 }

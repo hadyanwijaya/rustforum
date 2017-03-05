@@ -25,7 +25,7 @@ pub struct NewUser {
 
 #[derive(Debug, Queryable)]
 pub struct Question {
-    pub id: i32,
+    pub question_id: i32,
     pub question_text: String,
     pub tags: String,
     pub created_at: SystemTime,
