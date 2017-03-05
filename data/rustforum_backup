@@ -1,0 +1,282 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 9.6.1
+-- Dumped by pg_dump version 9.6.1
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+SET search_path = public, pg_catalog;
+
+--
+-- Name: diesel_manage_updated_at(regclass); Type: FUNCTION; Schema: public; Owner: ridwanbejo
+--
+
+CREATE FUNCTION diesel_manage_updated_at(_tbl regclass) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    EXECUTE format('CREATE TRIGGER set_updated_at BEFORE UPDATE ON %s
+                    FOR EACH ROW EXECUTE PROCEDURE diesel_set_updated_at()', _tbl);
+END;
+$$;
+
+
+ALTER FUNCTION public.diesel_manage_updated_at(_tbl regclass) OWNER TO ridwanbejo;
+
+--
+-- Name: diesel_set_updated_at(); Type: FUNCTION; Schema: public; Owner: ridwanbejo
+--
+
+CREATE FUNCTION diesel_set_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF (
+        NEW IS DISTINCT FROM OLD AND
+        NEW.updated_at IS NOT DISTINCT FROM OLD.updated_at
+    ) THEN
+        NEW.updated_at := current_timestamp;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.diesel_set_updated_at() OWNER TO ridwanbejo;
+
+--
+-- Name: answers_id_seq; Type: SEQUENCE; Schema: public; Owner: ridwanbejo
+--
+
+CREATE SEQUENCE answers_id_seq
+    START WITH 50
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE answers_id_seq OWNER TO ridwanbejo;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: answers; Type: TABLE; Schema: public; Owner: ridwanbejo
+--
+
+CREATE TABLE answers (
+    answer_id integer DEFAULT nextval('answers_id_seq'::regclass) NOT NULL,
+    answer_text text NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    user_id integer NOT NULL,
+    question_id integer NOT NULL
+);
+
+
+ALTER TABLE answers OWNER TO ridwanbejo;
+
+--
+-- Name: questions; Type: TABLE; Schema: public; Owner: ridwanbejo
+--
+
+CREATE TABLE questions (
+    question_id integer NOT NULL,
+    question_text text NOT NULL,
+    tags character varying NOT NULL,
+    created_at timestamp without time zone NOT NULL,
+    user_id integer NOT NULL
+);
+
+
+ALTER TABLE questions OWNER TO ridwanbejo;
+
+--
+-- Name: questions_id_seq; Type: SEQUENCE; Schema: public; Owner: ridwanbejo
+--
+
+CREATE SEQUENCE questions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE questions_id_seq OWNER TO ridwanbejo;
+
+--
+-- Name: questions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: ridwanbejo
+--
+
+ALTER SEQUENCE questions_id_seq OWNED BY questions.question_id;
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: ridwanbejo
+--
+
+CREATE TABLE users (
+    id integer NOT NULL,
+    username character varying NOT NULL,
+    email character varying NOT NULL,
+    password character varying NOT NULL,
+    token character varying NOT NULL,
+    created_at timestamp without time zone NOT NULL
+);
+
+
+ALTER TABLE users OWNER TO ridwanbejo;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: ridwanbejo
+--
+
+CREATE SEQUENCE users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE users_id_seq OWNER TO ridwanbejo;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: ridwanbejo
+--
+
+ALTER SEQUENCE users_id_seq OWNED BY users.id;
+
+
+--
+-- Name: questions question_id; Type: DEFAULT; Schema: public; Owner: ridwanbejo
+--
+
+ALTER TABLE ONLY questions ALTER COLUMN question_id SET DEFAULT nextval('questions_id_seq'::regclass);
+
+
+--
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: ridwanbejo
+--
+
+ALTER TABLE ONLY users ALTER COLUMN id SET DEFAULT nextval('users_id_seq'::regclass);
+
+
+--
+-- Data for Name: answers; Type: TABLE DATA; Schema: public; Owner: ridwanbejo
+--
+
+COPY answers (answer_id, answer_text, created_at, user_id, question_id) FROM stdin;
+54	testing answer	2017-03-05 06:03:24.170334	13	50
+55	testing answer	2017-03-05 06:03:26.102218	13	50
+56	testing answer	2017-03-05 06:03:26.622408	13	50
+57	testing answer	2017-03-05 06:03:27.03483	13	50
+58	testing answer	2017-03-05 06:03:27.454526	13	50
+\.
+
+
+--
+-- Name: answers_id_seq; Type: SEQUENCE SET; Schema: public; Owner: ridwanbejo
+--
+
+SELECT pg_catalog.setval('answers_id_seq', 58, true);
+
+
+--
+-- Data for Name: questions; Type: TABLE DATA; Schema: public; Owner: ridwanbejo
+--
+
+COPY questions (question_id, question_text, tags, created_at, user_id) FROM stdin;
+23	Lorem ipsum sit dolor ametsssssssssssssssśś	programming, rust, restful	2017-02-27 16:11:23.792677	12
+24	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:33.650218	12
+25	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:34.483907	12
+26	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:35.02454	12
+27	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:35.553267	12
+28	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:54.035662	12
+29	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:54.890764	12
+30	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-27 16:11:55.435404	12
+31	Lorem ipsum sit dolor amet	programming, rust, restful	2017-02-28 00:30:36.427489	12
+47	test	programming, rust, restful	2017-03-05 04:26:37.358031	13
+48	test	programming, rust, restful	2017-03-05 04:26:38.103609	13
+49	test	programming, rust, restful	2017-03-05 04:26:39.2978	13
+50	test	programming, rust, restful	2017-03-05 04:26:40.049106	13
+\.
+
+
+--
+-- Name: questions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: ridwanbejo
+--
+
+SELECT pg_catalog.setval('questions_id_seq', 50, true);
+
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: ridwanbejo
+--
+
+COPY users (id, username, email, password, token, created_at) FROM stdin;
+12	ridwanbejo	ridwanbejo@gmail.com	rahasia12345	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyaWR3YW5iZWpvQGdtYWlsLmNvbSIsInVzZXJuYW1lIjoicmlkd2FuYmVqbyIsImNvbXBhbnkiOiJDb2RlcG9saXRhbiJ9.fB-XAtcuQzL8paIvLBgWoq2g7Hd89zZipNaJ4Ma7A2s	2017-03-05 02:03:56.738864
+13	ridwan	ridwan@gmail.com	rahasia	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyaWR3YW5AZ21haWwuY29tIiwidXNlcm5hbWUiOiJyaWR3YW4iLCJjb21wYW55IjoiQ29kZXBvbGl0YW4ifQ.ITom0luzXqWRciKTyUbP4AtY3it2jXrYfHQ30d7ygCo	2017-03-05 02:05:12.561676
+\.
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: ridwanbejo
+--
+
+SELECT pg_catalog.setval('users_id_seq', 13, true);
+
+
+--
+-- Name: answers answers_pkey; Type: CONSTRAINT; Schema: public; Owner: ridwanbejo
+--
+
+ALTER TABLE ONLY answers
+    ADD CONSTRAINT answers_pkey PRIMARY KEY (answer_id);
+
+
+--
+-- Name: questions questions_pkey; Type: CONSTRAINT; Schema: public; Owner: ridwanbejo
+--
+
+ALTER TABLE ONLY questions
+    ADD CONSTRAINT questions_pkey PRIMARY KEY (question_id);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: ridwanbejo
+--
+
+ALTER TABLE ONLY users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
