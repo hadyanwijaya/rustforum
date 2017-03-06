@@ -63,12 +63,25 @@ pub struct NewAnswer {
     pub created_at: SystemTime
 }
 
-// #[derive(Debug, Queryable)]
-// pub struct Reaction {
-//     pub id: i32,
-//     pub answer_text: String,
-//     pub question_id: String,
-//     pub user_id: String,
-//     pub created_at: SystemTime
-// }
+#[derive(Debug, Queryable)]
+pub struct Reaction {
+    pub reaction_id: i32,
+    pub user_id: i32,
+    pub object_id: i32,
+    pub object_type: String,
+    pub reaction_type: String,
+    pub created_at: SystemTime
+}
+
+use super::schema::reactions;
+
+#[derive(Debug, Insertable)]
+#[table_name="reactions"]
+pub struct NewReaction {
+    pub user_id: i32,
+    pub object_id: i32,
+    pub object_type: String,
+    pub reaction_type: String,
+}
+
 

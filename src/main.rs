@@ -564,6 +564,7 @@ fn set_answer(v_token: Token, qid: &str, answer: JSON<AnswerPayload>) -> JSON<Va
     }
 }
 
+/* TODO */
 #[post("/<qid>/like")]
 fn like_question(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -589,6 +590,7 @@ fn like_question(v_token: Token, qid: &str) -> JSON<Value> {
     }))
 }
 
+/* TODO */
 #[post("/<qid>/dislike")]
 fn dislike_question(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -621,6 +623,7 @@ Answer Service
 
 */
 
+/* TODO */
 #[put("/<qid>")]
 fn update_answer(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -646,6 +649,7 @@ fn update_answer(v_token: Token, qid: &str) -> JSON<Value> {
     }))
 }
 
+/* TODO */
 #[delete("/<qid>")]
 fn delete_answer(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -671,6 +675,7 @@ fn delete_answer(v_token: Token, qid: &str) -> JSON<Value> {
     }))
 }
 
+/* TODO */
 #[post("/<qid>/like")]
 fn like_answer(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -696,6 +701,7 @@ fn like_answer(v_token: Token, qid: &str) -> JSON<Value> {
     }))
 }
 
+/* TODO */
 #[post("/<qid>/dislike")]
 fn dislike_answer(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -977,6 +983,7 @@ fn logout(v_token: Token) -> JSON<Value> {
     }
 }
 
+/* TODO */
 #[get("/forgot_password")]
 fn forgot_password(v_token: Token) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -1004,11 +1011,10 @@ fn forgot_password(v_token: Token) -> JSON<Value> {
     }))
 }
 
+/* TODO */
 #[get("/change_profile_picture")]
 fn change_profile_picture() -> JSON<Value> {
 
-    /* TODO */
-    
     JSON(json!({
         "message": "You call /change_profile_picture"
     }))
