@@ -124,6 +124,16 @@ struct AnswerRow {
 }
 
 
+#[derive(Serialize)]
+struct ReactionRow {
+    reaction_id: i32, 
+    user_id: i32,
+    object_id: i32,
+    object_type: String,
+    reaction_type: String
+}
+
+
 /*
 
 Question Service
@@ -564,7 +574,6 @@ fn set_answer(v_token: Token, qid: &str, answer: JSON<AnswerPayload>) -> JSON<Va
     }
 }
 
-/* TODO */
 #[post("/<qid>/like")]
 fn like_question(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -575,22 +584,56 @@ fn like_question(v_token: Token, qid: &str) -> JSON<Value> {
         }
     };
 
-    use rustforum::schema::users::dsl::*;
-    let connection = establish_connection();
+    if (token_data.claims.is_valid())
+    {
+        let v_object_type = "question".to_string();
+        let v_reaction_type = "like".to_string();
+        let v_object_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
 
-    // get user id
-    let v_user = users
-                .filter(username.eq(token_data.claims.username))
-                .filter(email.eq(token_data.claims.sub))
-                .first::<User>(&connection)
-                .expect("Error loading users");
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
 
-    JSON(json!({
-        "message": "You call POST /question/<qid>/like"
-    }))
+        use rustforum::schema::reactions::dsl::*;
+        let connection = establish_connection();
+        
+        let new_reaction = NewReaction { 
+            object_type: v_object_type, 
+            object_id: v_object_id, 
+            reaction_type: v_reaction_type,
+            user_id: v_user.id,
+            created_at: SystemTime::now(),
+        };
+
+        insert(&new_reaction)
+            .into(reactions)
+            .execute(&connection)
+            .expect("Error saving reaction");
+
+        JSON(json!({
+            "message": "Give like reaction is success..",
+            "data": {
+                "object_type": format!("{}", new_reaction.object_type),
+                "object_id": format!("{}", new_reaction.object_id),
+                "reaction_type": format!("{}", new_reaction.reaction_type)
+            }
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
-/* TODO */
+
 #[post("/<qid>/dislike")]
 fn dislike_question(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -601,19 +644,53 @@ fn dislike_question(v_token: Token, qid: &str) -> JSON<Value> {
         }
     };
 
-    use rustforum::schema::users::dsl::*;
-    let connection = establish_connection();
+    if (token_data.claims.is_valid())
+    {
+        let v_object_type = "question".to_string();
+        let v_reaction_type = "dislike".to_string();
+        let v_object_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
 
-    // get user id
-    let v_user = users
-                .filter(username.eq(token_data.claims.username))
-                .filter(email.eq(token_data.claims.sub))
-                .first::<User>(&connection)
-                .expect("Error loading users");
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
 
-    JSON(json!({
-        "message": "You call POST /question/<qid>/dislike"
-    }))
+        use rustforum::schema::reactions::dsl::*;
+        let connection = establish_connection();
+        
+        let new_reaction = NewReaction { 
+            object_type: v_object_type, 
+            object_id: v_object_id, 
+            reaction_type: v_reaction_type,
+            user_id: v_user.id,
+            created_at: SystemTime::now(),
+        };
+
+        insert(&new_reaction)
+            .into(reactions)
+            .execute(&connection)
+            .expect("Error saving reaction");
+
+        JSON(json!({
+            "message": "Give dislike reaction is success..",
+            "data": {
+                "object_type": format!("{}", new_reaction.object_type),
+                "object_id": format!("{}", new_reaction.object_id),
+                "reaction_type": format!("{}", new_reaction.reaction_type)
+            }
+        }))
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
 

@@ -82,6 +82,7 @@ pub struct NewReaction {
     pub object_id: i32,
     pub object_type: String,
     pub reaction_type: String,
+    pub created_at: SystemTime
 }
 
 
