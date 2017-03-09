@@ -633,7 +633,6 @@ fn like_question(v_token: Token, qid: &str) -> JSON<Value> {
     }
 }
 
-
 #[post("/<qid>/dislike")]
 fn dislike_question(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -701,8 +700,8 @@ Answer Service
 */
 
 /* TODO */
-#[put("/<qid>")]
-fn update_answer(v_token: Token, qid: &str) -> JSON<Value> {
+#[put("/<qid>", format = "application/json", data = "<answer>")]
+fn update_answer(v_token: Token, qid: &str, answer: JSON<AnswerPayload>) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
         Ok(c) => c,
         Err(err) => match err {
@@ -711,22 +710,61 @@ fn update_answer(v_token: Token, qid: &str) -> JSON<Value> {
         }
     };
 
-    use rustforum::schema::users::dsl::*;
-    let connection = establish_connection();
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
 
-    // get user id
-    let v_user = users
-                .filter(username.eq(token_data.claims.username))
-                .filter(email.eq(token_data.claims.sub))
-                .first::<User>(&connection)
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
+
+        let answ = answer.0.answer_text;
+        let row_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::answers::dsl::*;
+        let connection = establish_connection();
+        
+        let v_answer = answers
+                .filter(user_id.eq(v_user.id))
+                .filter(answer_id.eq(row_id))
+                .load::<Answer>(&connection)
                 .expect("Error loading users");
 
-    JSON(json!({
-        "message": "You call PUT /answer/<qid>"
-    }))
+        if (v_answer.len() > 0){
+            let row = update(
+                    answers
+                    .find(row_id)
+                )
+                .set(answer_text.eq(answ))
+                .get_result::<Answer>(&connection)
+                .expect("Error updating answer");
+
+            JSON(json!({
+                "message": "Update answer is success..",
+                "data": {
+                    "answer_text": format!("{}", row.answer_text),
+                }
+            }))
+        }
+        else
+        {
+            JSON(json!({
+                "message": "You are unauthorized to edit this answer"
+            })) 
+        }
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
-/* TODO */
 #[delete("/<qid>")]
 fn delete_answer(v_token: Token, qid: &str) -> JSON<Value> {
     let token_data = match decode::<Claims>(&v_token.0, SECRET_KEY.as_ref(), Algorithm::HS256) {
@@ -737,19 +775,57 @@ fn delete_answer(v_token: Token, qid: &str) -> JSON<Value> {
         }
     };
 
-    use rustforum::schema::users::dsl::*;
-    let connection = establish_connection();
+    if (token_data.claims.is_valid())
+    {
+        use rustforum::schema::users::dsl::*;
+        let connection = establish_connection();
 
-    // get user id
-    let v_user = users
-                .filter(username.eq(token_data.claims.username))
-                .filter(email.eq(token_data.claims.sub))
-                .first::<User>(&connection)
-                .expect("Error loading users");
+        // get user id
+        let v_user = users
+                    .filter(username.eq(token_data.claims.username))
+                    .filter(email.eq(token_data.claims.sub))
+                    .first::<User>(&connection)
+                    .expect("Error loading users");
 
-    JSON(json!({
-        "message": "You call DELETE /answer/<qid>"
-    }))
+        let row_id = qid.parse::<i32>().unwrap();
+        
+        use rustforum::schema::answers::dsl::*;
+        let connection = establish_connection();
+        
+        let v_answer = answers
+                .filter(user_id.eq(v_user.id))
+                .filter(answer_id.eq(row_id))
+                .load::<Answer>(&connection)
+                .expect("Error loading question");
+
+        println!("{}", v_answer.len());
+
+        if (v_answer.len() > 0){
+            delete(
+                    answers
+                    .find(row_id)
+                )
+                .execute(&connection)
+                .expect("Error deleting answer");
+
+            JSON(json!({
+                "message": format!("Deleting the answer with id: {}", qid)
+            }))
+
+        }
+        else
+        {
+            JSON(json!({
+                "message": "You are unauthorized to delete this answer"
+            })) 
+        }
+    }
+    else
+    {
+        JSON(json!({
+            "message": "Invalid token"
+        }))
+    }
 }
 
 /* TODO */
